@@ -1,45 +1,41 @@
-# GLiNER_train
+# GLiNER Azerbaijani NER Training
 
-Bu repo Azərbaycan dili üçün NER məlumatını GLiNER formatına çevirmək və GLiNER modeli üzərində ilkin fine-tuning təcrübələri aparmaq üçün hazırlanıb. Əsas iş axını [GLINER.ipynb](/Users/nazrinaliyeva/Desktop/GLiNER_train-1/GLINER.ipynb) notebook-u içindədir.
+Bu layihə Azərbaycan dili üçün NER datasetini təmizləmək, GLiNER formatına çevirmək və GLiNER modeli ilə ilkin fine-tuning təcrübəsi aparmaq üçün hazırlanıb.
 
-## Layihənin məqsədi
+Əsas iş faylı: [`GLINER.ipynb`](GLINER.ipynb)
 
-Notebook aşağıdakı mərhələləri həyata keçirir:
+## Məqsəd
 
-- Hugging Face üzərindən `LocalDoc/azerbaijani-ner-dataset` datasetini yükləyir
-- `tokens` və `ner_tags` sütunlarını string formatından siyahıya çevirib təmizləyir
-- Uyğunsuz və ya pozulmuş sətrləri filtrdən keçirir
-- Dataseti `train`, `validation`, `test` hissələrinə bölür
-- Nəticəni GLiNER-in gözlədiyi JSON formatına çevirir
-- Tam label xəritəsi və sadələşdirilmiş label xəritəsi ilə təcrübələr aparır
-- `urchade/gliner_multi-v2.1` və `urchade/gliner_small-v2.1` modelləri ilə təlim yoxlamaları edir
+Notebook aşağıdakı işləri görür:
 
-## Repo strukturu
+- `LocalDoc/azerbaijani-ner-dataset` datasetini Hugging Face-dən yükləyir
+- `tokens` və `ner_tags` sütunlarını normal Python list formatına çevirir
+- pozulmuş və uzunluğu uyğun gəlməyən sətrləri filtrdən keçirir
+- dataset-i `train`, `validation` və `test` hissələrinə bölür
+- token-level NER annotation-larını GLiNER üçün span formatına çevirir
+- label-ları analiz edir və sadələşdirilmiş label seti hazırlayır
+- GLiNER modeli üzərində kiçik training sınaqları aparır
 
-- [GLINER.ipynb](/Users/nazrinaliyeva/Desktop/GLiNER_train-1/GLINER.ipynb): bütün preprocessing, çevirmə və training sınaqları
-- [README.md](/Users/nazrinaliyeva/Desktop/GLiNER_train-1/README.md): layihə təsviri
-- `.gitignore`: lokal checkpoint və model artefaktlarını Git-dən kənarda saxlayır
+## Dataset
 
-## Dataset haqqında
+İstifadə olunan dataset:
 
-Notebook-da istifadə olunan ilkin dataset:
+```text
+LocalDoc/azerbaijani-ner-dataset
+```
 
-- Mənbə: `LocalDoc/azerbaijani-ner-dataset`
-- İlkin `train` ölçüsü: `99,545` sətir
-- Təmizləmədən sonra qalan sətir sayı: `95,953`
-- Buraxılan sətrlər: `3,592`
+Dataset-də hər nümunə əsasən iki sahədən ibarətdir:
 
-Təmizləmədən sonra split belə qurulur:
+- `tokens`: cümlənin token-ləri
+- `ner_tags`: hər token üçün label ID
 
-- `train`: `86,357`
-- `validation`: `4,798`
-- `test`: `4,798`
+Notebook bu sahələri təmizləyir və model training-i üçün daha uyğun formata gətirir.
 
-## Label-lar
+## Label Sadələşdirməsi
 
-Notebook-da əvvəlcə geniş label xəritəsi istifadə olunur. Buraya `PERSON`, `LOCATION`, `ORGANISATION`, `DATE`, `TIME`, `MONEY`, `FACILITY`, `PRODUCT`, `EVENT`, `LAW`, `LANGUAGE`, `GPE`, `NORP`, `CARDINAL`, `QUANTITY`, `POSITION`, `PROJECT` və başqa siniflər daxildir.
+İlkin dataset-də label sayı çoxdur və bəzi label-lar bir-birinə semantik olaraq yaxındır. Buna görə notebook-da label-ların bir hissəsi saxlanılır, bəziləri isə birləşdirilir və ya `O` kimi atılır.
 
-Daha sonra GLiNER üçün sadələşdirilmiş bir versiya da hazırlanır. Bu versiyada əsas saxlanılan label-lar:
+Saxlanılan əsas label-lar:
 
 - `PERSON`
 - `LOCATION`
@@ -52,98 +48,86 @@ Daha sonra GLiNER üçün sadələşdirilmiş bir versiya da hazırlanır. Bu ve
 - `CONTACT`
 - `FACILITY`
 - `POSITION`
+- `NUMBER`
 
-Qeyd:
+Əlavə çevirmələr:
 
-- `GPE` -> `LOCATION` kimi map olunur
-- qalan bir çox sinif `O`-ya çevrilərək atılır
+- `GPE` -> `LOCATION`
+- `CARDINAL`, `ORDINAL`, `QUANTITY`, `PERCENTAGE` -> `NUMBER`
 
-## GLiNER formatı
+## GLiNER Formatı
 
-Notebook dataseti aşağıdakı formata çevirir:
+GLiNER token-level label-lar əvəzinə span formatı gözləyir. Ona görə dataset aşağıdakı struktura çevrilir:
 
 ```json
 {
-  "tokenized_text": ["Heyvan", "sahibinə", "külli", "miqdarda", "maddi", "ziyan", "vurulub", "."],
-  "ner": [[2, 3, "quantity"]]
+  "tokenized_text": ["Ilham", "Aliyev", "Bakida", "gorushdu"],
+  "ner": [
+    [0, 1, "person"],
+    [2, 2, "location"]
+  ]
 }
 ```
 
-Bu çevirmənin nəticəsi olaraq notebook aşağıdakı faylları yarada bilir:
+Burada:
 
-- `train_gliner.json`
-- `val_gliner.json`
-- `test_gliner.json`
+- `tokenized_text` cümlənin token-ləridir
+- `ner` entity span-larını saxlayır
+- span formatı `[start_index, end_index, label]` şəklindədir
 
-## Təlim ssenariləri
+## Quraşdırma
 
-Notebook-da iki əsas təlim istiqaməti görünür:
+Python virtual environment yaratmaq tövsiyə olunur:
 
-### 1. Daha böyük model ilə sınaq
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-- baza model: `urchade/gliner_multi-v2.1`
-- `MAX_TOKENS = 96`
-- `train_data_small`: ilk `10,000` nümunə
-- `val_data_small`: ilk `1,000` nümunə
-- `max_steps = 300`
-- `batch_size = 1`
-
-Bu sınaq zamanı MPS yaddaş çatışmazlığı xətası alınıb.
-
-### 2. Daha kiçik model ilə sınaq
-
-- baza model: `urchade/gliner_small-v2.1`
-- qısa cümlələrdən ibarət alt seçim istifadə olunur
-- `train_tiny2`: `300` nümunə
-- `val_tiny2`: `30` nümunə
-- `max_steps = 20`
-- `batch_size = 1`
-- çıxış qovluğu: `gliner_az_model_small_v2`
-
-Bu ssenari notebook-da uğurla irəliləyən yüngül training yoxlaması kimi görünür.
-
-## Tələblər
-
-Layihəni işlətmək üçün ən azı bunlar lazımdır:
-
-- Python 3
-- Jupyter Notebook və ya JupyterLab
-- `datasets`
-- `gliner`
-- `transformers`
-- `torch`
-- `accelerate`
-- `seqeval`
-
-Quraşdırma nümunəsi:
+Lazımi paketlər:
 
 ```bash
 pip install -U datasets gliner transformers torch accelerate seqeval jupyter
 ```
 
-## İstifadə
-
-1. Repo-nu klonla.
-2. Virtual environment yaratmaq tövsiyə olunur.
-3. Hugging Face girişi lazımdırsa `huggingface-cli login` et.
-4. Jupyter-i aç:
+Dataset və model Hugging Face-dən yükləndiyi üçün lazım olsa giriş edin:
 
 ```bash
-jupyter notebook
+huggingface-cli login
 ```
 
-5. [GLINER.ipynb](/Users/nazrinaliyeva/Desktop/GLiNER_train-1/GLINER.ipynb)-u ardıcıllıqla işə sal.
+## İstifadə
+
+Notebook-u açın:
+
+```bash
+jupyter notebook GLINER.ipynb
+```
+
+Sonra cell-ləri ardıcıllıqla işə salın:
+
+1. Dataset-i yüklə
+2. `tokens` və `ner_tags` sahələrini təmizlə
+3. Dataset-i train/validation/test hissələrinə böl
+4. Label statistikalarını yoxla
+5. Dataset-i GLiNER formatına çevir
+6. Kiçik training sınağını işə sal
+
+## Yaranan Fayllar
+
+Notebook işlədikdən sonra bu fayllar yarana bilər:
+
+- `train_gliner.json`
+- `val_gliner.json`
+- `test_gliner.json`
+- `gliner_az_model/`
+- `gliner_az_model_small_v2/`
+
+Model checkpoint-ləri və böyük training artefaktları Git-ə əlavə edilməməlidir.
 
 ## Qeydlər
 
-- Notebook daxilində həm tam label seti, həm də sadələşdirilmiş label seti ilə eksperiment var.
-- Böyük checkpoint faylları repo-ya daxil edilmir və `.gitignore` ilə qorunur.
-- Apple Silicon `MPS` üzərində böyük model training-i yaddaş problemi verə bilər.
-- Kiçik model və qısa sequence-lərlə başlamaq daha təhlükəsizdir.
-
-## Növbəti addımlar
-
-- training kodunu ayrıca `.py` skriptinə çıxarmaq
-- evaluation metric-lərini README-də ayrıca göstərmək
-- inferens nümunəsi əlavə etmək
-- yaranan `train_gliner.json` və sadələşdirilmiş dataset fayllarını ayrıca versiyalamaq
+- Böyük GLiNER modeli Apple Silicon `MPS` üzərində yaddaş problemi yarada bilər.
+- İlk sınaqlar üçün az nümunə, qısa cümlələr və kiçik model istifadə etmək daha rahatdır.
+- Notebook-da həm ilkin label seti, həm də sadələşdirilmiş label seti ilə eksperiment var.
+- Köhnə Jupyter output-ları VS Code-da notebook-un gec açılmasına səbəb ola bilər. Belə hal olsa, output-ları təmizləmək lazımdır.
